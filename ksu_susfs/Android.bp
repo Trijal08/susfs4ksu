@@ -1,0 +1,32 @@
+// Mist OS: the SusFS per-app spoofing pusher.
+//
+// This is the ksu_susfs CLI built INTO the ROM as `mist_susfs` (deliberately a
+// different name/path than the stock `ksu_susfs`, so it never clashes with a susfs
+// KernelSU module the user may install on their own). It is run as a root init
+// service (see mist_susfs.rc) — exec'd by init, so it has no zygote seccomp filter
+// and can issue the reboot()-backdoor supercall, and runs as uid 0 so it passes the
+// existing supercall gate. After applying the plan it hides its own binary via
+// add_sus_path. Plain C, so it builds in-tree (unlike ksud's Rust).
+cc_binary {
+    name: "mist_susfs",
+    // ROM-specific addition -> /system_ext (keeps /system pristine for Treble/GSI); the
+    // init_rc lands in /system_ext/etc/init. Matches gameprops living in /system_ext too.
+    system_ext_specific: true,
+    srcs: [
+        "jni/main.c",
+        "jni/susfs_utils.c",
+        "jni/features/*.c",
+    ],
+    local_include_dirs: ["jni/includes"],
+    cflags: [
+        "-Wall",
+        "-Wno-unused-parameter",
+        "-Wno-unused-variable",
+        "-Wno-sign-compare",
+        "-fvisibility=hidden",
+        "-ffunction-sections",
+        "-fdata-sections",
+    ],
+    ldflags: ["-Wl,--gc-sections"],
+    init_rc: ["mist_susfs.rc"],
+}
