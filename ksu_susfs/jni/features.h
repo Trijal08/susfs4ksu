@@ -10,6 +10,7 @@
 #include "features/avc_log_spoofing.h"
 #include "features/enable_log.h"
 #include "features/open_redirect.h"
+#include "features/time_offset.h"
 #include "features/show.h"
 
 

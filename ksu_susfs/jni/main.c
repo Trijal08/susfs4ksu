@@ -19,6 +19,8 @@ static void print_help(void) {
 	enable_log_print_help();
 	enable_avc_log_spoofing_print_help();
 	open_redirect_print_help();
+	set_file_time_offset_print_help();
+	set_uptime_offset_print_help();
 	show_print_help();
 }
 
@@ -68,6 +70,10 @@ int main(int argc, char *argv[]) {
 		return show(argc, argv);
 	if (!strcmp(argv[1], "set_uname"))
 		return set_uname(argc, argv);
+	if (!strcmp(argv[1], "set_file_time_offset"))
+		return set_file_time_offset(argc, argv);
+	if (!strcmp(argv[1], "set_uptime_offset"))
+		return set_uptime_offset(argc, argv);
 	print_help();
 	return -EINVAL;
 }
