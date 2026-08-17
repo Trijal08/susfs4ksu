@@ -11,6 +11,7 @@
 #include "open_redirect.h"
 
 #define CMD_SUSFS_ADD_OPEN_REDIRECT 0x555c0
+#define CMD_SUSFS_ADD_OPEN_REDIRECT_UID 0x555c1
 
 enum UID_SCHEME {
 	UID_NON_APP_PROC = 0,
@@ -25,10 +26,13 @@ struct st_susfs_open_redirect {
 	char                    redirected_pathname[SUSFS_MAX_LEN_PATHNAME];
 	int                     uid_scheme;
 	int                     err;
+	/* appended after err to mirror the kernel struct and keep the legacy ABI
+	 * byte-stable; only sent (full-size) via CMD_SUSFS_ADD_OPEN_REDIRECT_UID. */
+	int                     target_uid;
 };
 
 void open_redirect_print_help(void){
-	log("    add_open_redirect </target/path> </redirected/path> <uid_scheme>\n");
+	log("    add_open_redirect </target/path> </redirected/path> <uid_scheme> [target_uid]\n");
 	log("      |--> Redirect the target path to be opened with user defined path and pre-defined uid scheme\n");
 	log("      |--> <uid_scheme>\n");
 	log("             |--> 0: Effective for non-app processes (uid < 10000)\n");
@@ -55,7 +59,7 @@ int add_open_redirect(int argc, char *argv[]) {
 	char *endptr;
 	long uid_scheme;
 
-	if (argc != 5) {
+	if (argc != 5 && argc != 6) {
 		print_help();
 		return -EINVAL;
 	}
@@ -92,11 +96,27 @@ int add_open_redirect(int argc, char *argv[]) {
 	}
 
 	info.uid_scheme = uid_scheme;
+
+	// Optional 4th positional arg = target_uid (per-app). When present we send the
+	// *_UID command, which the kernel copies at full size; otherwise the legacy
+	// command is used (kernel copies up to offsetof(target_uid)), leaving the ABI
+	// for existing susfs tooling untouched.
+	int redirect_cmd = CMD_SUSFS_ADD_OPEN_REDIRECT;
+	if (argc == 6) {
+		long target_uid = strtol(argv[5], &endptr, 10);
+		if (*endptr != '\0' || target_uid < 0) {
+			print_help();
+			return -EINVAL;
+		}
+		info.target_uid = (int)target_uid;
+		redirect_cmd = CMD_SUSFS_ADD_OPEN_REDIRECT_UID;
+	}
+
 	strncpy(info.target_pathname, target_pathname, SUSFS_MAX_LEN_PATHNAME-1);
 	strncpy(info.redirected_pathname, redirected_pathname, SUSFS_MAX_LEN_PATHNAME-1);
 	info.err = ERR_CMD_NOT_SUPPORTED;
-	syscall(SYS_reboot, KSU_INSTALL_MAGIC1, SUSFS_MAGIC, CMD_SUSFS_ADD_OPEN_REDIRECT, &info);
-	PRT_MSG_IF_CMD_NOT_SUPPORTED(info.err, CMD_SUSFS_ADD_OPEN_REDIRECT);
+	syscall(SYS_reboot, KSU_INSTALL_MAGIC1, SUSFS_MAGIC, redirect_cmd, &info);
+	PRT_MSG_IF_CMD_NOT_SUPPORTED(info.err, redirect_cmd);
 	return info.err;
 }
 

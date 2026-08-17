@@ -13,6 +13,7 @@
 #define CMD_SUSFS_ADD_SUS_KSTAT 0x55570
 #define CMD_SUSFS_UPDATE_SUS_KSTAT 0x55571
 #define CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY 0x55572
+#define CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY_UID 0x55573
 
 #define KSTAT_SPOOF_INO (1 << 0)
 #define KSTAT_SPOOF_DEV (1 << 1)
@@ -49,6 +50,9 @@ struct st_susfs_sus_kstat {
 	long                    spoofed_blksize;
 	int                     flags;
 	int                     err;
+	/* appended after err to mirror the kernel struct and keep the legacy ABI
+	 * byte-stable; only sent (full-size) via CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY_UID. */
+	int                     target_uid;
 };
 
 static void copy_from_stat_to_sus_kstat(struct st_susfs_sus_kstat* info, struct stat* sb) {
@@ -67,7 +71,7 @@ static void copy_from_stat_to_sus_kstat(struct st_susfs_sus_kstat* info, struct 
 }
 
 void sus_kstat_print_help(void){
-	log("    add_sus_kstat_statically </path/of/file_or_directory> <ino> <dev> <nlink> <size> <atime> <atime_nsec> <mtime> <mtime_nsec> <ctime> <ctime_nsec> <blocks> <blksize>\n");
+	log("    add_sus_kstat_statically </path/of/file_or_directory> <ino> <dev> <nlink> <size> <atime> <atime_nsec> <mtime> <mtime_nsec> <ctime> <ctime_nsec> <blocks> <blksize> [target_uid]\n");
 	log("      |--> Use 'stat' tool to find the format:\n");
 	log("               ino -> %%i, dev -> %%d, nlink -> %%h, atime -> %%X, mtime -> %%Y, ctime -> %%Z\n");
 	log("               size -> %%s, blocks -> %%b, blksize -> %%B\n");
@@ -114,7 +118,7 @@ int add_sus_kstat_statically(int argc, char *argv[]) {
 	unsigned long ino, dev, nlink, size, atime, atime_nsec, mtime, mtime_nsec, ctime, ctime_nsec, blksize;
 	long blocks;
 
-	if (argc != 15) {
+	if (argc != 15 && argc != 16) {
 		print_help();
 		return -EINVAL;
 	}
@@ -262,9 +266,24 @@ int add_sus_kstat_statically(int argc, char *argv[]) {
 
 	strncpy(info.target_pathname, resolved_pathname, SUSFS_MAX_LEN_PATHNAME-1);
 	copy_from_stat_to_sus_kstat(&info, &sb);
+
+	// Optional 13th positional arg = target_uid (per-app). Selects the *_UID command
+	// (full-size copy); without it the legacy command is used (kernel copies up to
+	// offsetof(target_uid)), so existing susfs tooling is unaffected.
+	int kstat_cmd = CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY;
+	if (argc == 16) {
+		long target_uid = strtol(argv[15], &endptr, 10);
+		if (*endptr != '\0' || target_uid < 0) {
+			print_help();
+			return -EINVAL;
+		}
+		info.target_uid = (int)target_uid;
+		kstat_cmd = CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY_UID;
+	}
+
 	info.err = ERR_CMD_NOT_SUPPORTED;
-	syscall(SYS_reboot, KSU_INSTALL_MAGIC1, SUSFS_MAGIC, CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY, &info);
-	PRT_MSG_IF_CMD_NOT_SUPPORTED(info.err, CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY);
+	syscall(SYS_reboot, KSU_INSTALL_MAGIC1, SUSFS_MAGIC, kstat_cmd, &info);
+	PRT_MSG_IF_CMD_NOT_SUPPORTED(info.err, kstat_cmd);
 	return info.err;
 }
 
