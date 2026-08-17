@@ -22,6 +22,7 @@ static void print_help(void) {
 	build_prop_overlay_print_help();
 	set_file_time_offset_print_help();
 	set_uptime_offset_print_help();
+	stamp_status_print_help();
 	show_print_help();
 }
 
@@ -40,9 +41,7 @@ static inline void pre_check(int argc) {
 /*******************
  ** Main Function **
  *******************/
-int main(int argc, char *argv[]) {
-	pre_check(argc);
-
+int susfs_run_command(int argc, char *argv[]) {
 	if (!strcmp(argv[1], "add_sus_path"))
 		return add_sus_path(argc, argv);
 	if (!strcmp(argv[1], "add_sus_path_loop"))
@@ -79,7 +78,16 @@ int main(int argc, char *argv[]) {
 		return set_file_time_offset(argc, argv);
 	if (!strcmp(argv[1], "set_uptime_offset"))
 		return set_uptime_offset(argc, argv);
+	if (!strcmp(argv[1], "apply_plan"))
+		return apply_plan(argc, argv);
+	if (!strcmp(argv[1], "stamp_status"))
+		return stamp_status(argc, argv);
 	print_help();
 	return -EINVAL;
+}
+
+int main(int argc, char *argv[]) {
+	pre_check(argc);
+	return susfs_run_command(argc, argv);
 }
 

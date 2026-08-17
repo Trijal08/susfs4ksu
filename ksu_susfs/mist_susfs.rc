@@ -1,0 +1,37 @@
+# Mist OS — SusFS per-app spoofing pusher.
+#
+# The framework (Mistify) writes a list of mist_susfs sub-commands to
+# /data/mist_susfs/plan, then bumps "mist.susfs.apply". mist_susfs reads the
+# file, applies each command (per-uid uptime/file-time offsets, hides, etc.), and
+# then hides its own binary via add_sus_path. It runs as a root init service so it
+# has no zygote seccomp filter (reboot() supercall works) and is uid 0 (passes the
+# supercall gate) — no gate/seccomp/system_server changes needed.
+
+# 0771 (other-searchable) so the root mist_susfs service can traverse into the dir to
+# read the plan — it has no dac_read_search cap (that's blessed-domains-only), and the
+# dir is system:system. Contents stay protected by SELinux (mist_susfs_data_file) + the
+# plan file's own perms; 'other' can only traverse, not list or read the dir.
+on post-fs-data
+    mkdir /data/mist_susfs 0771 system system
+    # Root of the per-uid property overlay for the SusFS open_redirect prop spoof. init
+    # creates + labels it (mist_prop_dir) so mist_susfs only populates it; 0751 = apps can
+    # traverse (search) to the kernel-redirected copy but cannot list the dir.
+    mkdir /dev/.pc 0751 root root
+    restorecon /dev/.pc
+
+service mist_susfs_apply /system_ext/bin/mist_susfs apply_plan /data/mist_susfs/plan
+    user root
+    group root
+    seclabel u:r:mist_susfs:s0
+    oneshot
+    disabled
+
+# Initial apply at boot (the plan file persists in /data from the last config change).
+# mist_susfs also stamps the sys.mist.* SusFS/KernelSU version props for the detection UI.
+on property:sys.boot_completed=1
+    start mist_susfs_apply
+
+# Re-apply when the framework signals a config change, then re-arm the trigger.
+on property:mist.susfs.apply=1
+    start mist_susfs_apply
+    setprop mist.susfs.apply 0
