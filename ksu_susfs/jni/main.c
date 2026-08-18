@@ -19,6 +19,7 @@ static void print_help(void) {
 	enable_log_print_help();
 	enable_avc_log_spoofing_print_help();
 	open_redirect_print_help();
+	build_prop_overlay_print_help();
 	set_file_time_offset_print_help();
 	set_uptime_offset_print_help();
 	show_print_help();
@@ -52,6 +53,10 @@ int main(int argc, char *argv[]) {
 		return add_sus_map(argc, argv);
 	if (!strcmp(argv[1], "add_open_redirect"))
 		return add_open_redirect(argc, argv);
+	if (!strcmp(argv[1], "build_prop_overlay"))
+		return build_prop_overlay(argc, argv);
+	if (!strcmp(argv[1], "clear_prop_overlay"))
+		return clear_prop_overlay(argc, argv);
 	if (!strcmp(argv[1], "add_sus_kstat_statically"))
 		return add_sus_kstat_statically(argc, argv);
 	if (!strcmp(argv[1], "add_sus_kstat"))
