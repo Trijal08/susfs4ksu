@@ -200,10 +200,15 @@ int build_prop_overlay(int argc, char *argv[]) {
 	if (np <= 0)
 		return 0;
 
+	// The overlay is root-owned; the umounted app reads it through the redirect as "other",
+	// so the dirs must be world-searchable and the files world-readable. Clear the umask or
+	// the mode args below are masked (mist_susfs inherits a restrictive umask -> 0600/0700,
+	// which DAC-denies the app before SELinux even applies).
+	umask(0);
 	mkdir(OVERLAY_ROOT, 0751);   /* normally pre-created + labelled mist_prop_dir by init */
 	char udir[128];
 	snprintf(udir, sizeof(udir), "%s/%s", OVERLAY_ROOT, uid);
-	mkdir(udir, 0751);           /* labelled mist_prop_dir via type_transition */
+	mkdir(udir, 0711);           /* others: search only (no list); labelled via type_transition */
 
 	DIR *d = opendir(PROP_DIR);
 	if (!d) {
