@@ -20,6 +20,7 @@ static void print_help(void) {
 	enable_avc_log_spoofing_print_help();
 	open_redirect_print_help();
 	build_prop_overlay_print_help();
+	set_bootid_print_help();
 	set_file_time_offset_print_help();
 	set_uptime_offset_print_help();
 	stamp_status_print_help();
@@ -78,6 +79,8 @@ int susfs_run_command(int argc, char *argv[]) {
 		return set_file_time_offset(argc, argv);
 	if (!strcmp(argv[1], "set_uptime_offset"))
 		return set_uptime_offset(argc, argv);
+	if (!strcmp(argv[1], "set_bootid"))
+		return set_bootid(argc, argv);
 	if (!strcmp(argv[1], "apply_plan"))
 		return apply_plan(argc, argv);
 	if (!strcmp(argv[1], "stamp_status"))

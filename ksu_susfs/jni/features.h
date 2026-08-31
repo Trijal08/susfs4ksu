@@ -11,6 +11,7 @@
 #include "features/enable_log.h"
 #include "features/open_redirect.h"
 #include "features/prop_overlay.h"
+#include "features/set_bootid.h"
 #include "features/time_offset.h"
 #include "features/apply_plan.h"
 #include "features/stamp_status.h"
